@@ -109,6 +109,17 @@ class PackageCommand(BasicCommand):
                 ' Specify this flag to upload artifacts even if they '
                 ' match existing artifacts in the S3 bucket.'
             )
+        },
+
+        {
+            "name": "base-dir",
+            'required': False,
+            "help_text": (
+                "If specified, relative paths to local artifacts will be"
+                " resolved with respect to this directory. If not specified,"
+                " all relative paths will be resolved with respect to the"
+                " template's location."
+            )
         }
     ]
 
@@ -135,7 +146,10 @@ class PackageCommand(BasicCommand):
 
         output_file = parsed_args.output_template_file
         use_json = parsed_args.use_json
-        exported_str = self._export(template_path, use_json)
+        artifacts_base_dir = parsed_args.base_dir
+        exported_str = self._export(template_path,
+                                    artifacts_base_dir,
+                                    use_json)
 
         sys.stdout.write("\n")
         self.write_output(output_file, exported_str)
@@ -149,8 +163,19 @@ class PackageCommand(BasicCommand):
         sys.stdout.flush()
         return 0
 
-    def _export(self, template_path, use_json):
-        template = Template(template_path, os.getcwd(), self.s3_uploader)
+    def _export(self, template_path, artifacts_base_dir, use_json):
+        """
+        Runs the artifact export on given template
+
+        :param template_path: Path to the template to export
+        :param artifacts_base_dir: Relative paths to artifacts will be resolved
+            against this directory
+        :param use_json: Boolean indicating whether to output the exported
+            template as JSON string
+        :return: Template string with artifacts exported
+        """
+        template = Template(template_path, os.getcwd(), artifacts_base_dir,
+                            self.s3_uploader)
         exported_template = template.export()
 
         if use_json:
