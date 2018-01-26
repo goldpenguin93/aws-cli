@@ -21,7 +21,9 @@ This command can upload local artifacts specified by following properties of a r
 
 To specify a local artifact in your template, specify a path to a local file or folder,
 as either an absolute or relative path. The relative path is a location
-that is relative to your template's location.
+that is relative to your template's location. If the paths are not relative to
+template's location, you can specify a different base directory using
+``--base-dir`` option.
 
 For example, if your AWS Lambda function source code is in the
 ``/home/user/code/lambdafunction/`` folder, specify

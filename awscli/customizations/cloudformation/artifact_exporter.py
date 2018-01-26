@@ -371,8 +371,10 @@ class CloudFormationStackResource(Resource):
                     resource_id=resource_id,
                     template_path=abs_template_path)
 
+        # NOTE: Artifacts referenced by nested stacks are relative to the
+        # nested stack's template
         exported_template_dict = \
-            Template(template_path, parent_dir, self.uploader).export()
+            Template(template_path, parent_dir, None, self.uploader).export()
 
         exported_template_str = yaml_dump(exported_template_dict)
 
@@ -405,16 +407,28 @@ class Template(object):
     Class to export a CloudFormation template
     """
 
-    def __init__(self, template_path, parent_dir, uploader,
+    def __init__(self, template_path, parent_dir, artifacts_base_dir, uploader,
                  resources_to_export=EXPORT_DICT):
         """
         Reads the template and makes it ready for export
+        :param template_path: Path to the template to export
+        :param parent_dir: template_path is resolved with respect to this
+            directory, if necessary
+        :param artifacts_base_dir: Relative paths to artifacts will be resolved
+            against this directory
+        :param uploader S3Uploader: Instance of S3 Uploader class for uploading
+            artifacts to S3
+        :param resources_to_export: Dictionary of resource names to class
+            that can export artifacts for this resource.
         """
 
         if not (is_local_folder(parent_dir) and os.path.isabs(parent_dir)):
             raise ValueError("parent_dir parameter must be "
                              "an absolute path to a folder {0}"
                              .format(parent_dir))
+
+        if artifacts_base_dir:
+            artifacts_base_dir = make_abs_path(parent_dir, artifacts_base_dir)
 
         abs_template_path = make_abs_path(parent_dir, template_path)
         template_dir = os.path.dirname(abs_template_path)
@@ -423,7 +437,9 @@ class Template(object):
             template_str = handle.read()
 
         self.template_dict = yaml_parse(template_str)
-        self.template_dir = template_dir
+        # Resolve artifact paths relative to the given directory. If nothing is
+        # given, default to the template's location
+        self.artifact_base_dir = artifacts_base_dir or template_dir
         self.resources_to_export = resources_to_export
         self.uploader = uploader
 
@@ -447,6 +463,7 @@ class Template(object):
                 # Export code resources
                 exporter = self.resources_to_export[resource_type](
                         self.uploader)
-                exporter.export(resource_id, resource_dict, self.template_dir)
+                exporter.export(resource_id, resource_dict,
+                                self.artifact_base_dir)
 
         return self.template_dict
